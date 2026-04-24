@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "908598175019",
+    "project_id": "baustclub",
+    "storage_bucket": "baustclub.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:908598175019:android:3516b7585a3a0d2e37916e",
+        "android_client_info": {
+          "package_name": "com.example.baustclubh"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC78DuHt2UonNpvAuUTLBsfoN91Njn059w"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
