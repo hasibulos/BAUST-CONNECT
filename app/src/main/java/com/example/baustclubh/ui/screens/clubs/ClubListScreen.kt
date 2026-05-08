@@ -1,70 +1,64 @@
 package com.example.baustclubh.ui.screens.clubs
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import coil.compose.AsyncImage
 import com.example.baustclubh.ui.theme.*
-import com.example.baustclubh.ui.components.BottomNavBar
+import com.example.baustclubh.viewmodel.ClubViewModel
+import com.example.baustclubh.ui.components.BottomNavBar // ইমপোর্ট নিশ্চিত করুন
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClubListScreen(navController: NavController) {
+fun ClubListScreen(
+    navController: NavController,
+    clubViewModel: ClubViewModel
+) {
     var searchText by remember { mutableStateOf("") }
+    var selectedCategory by remember { mutableStateOf("All") }
+    val categories = listOf("All", "Tech", "Culture", "Sport", "Business")
 
-    // All clubs data
-    val allClubs = listOf(
-        ClubData("CSE Programming Club", "156 Members", "Technical", "Spring 2026"),
-        ClubData("BAUST Robotics Club", "84 Members", "Technical", "Active"),
-        ClubData("Debate Club", "42 Members", "Cultural", "Recruiting"),
-        ClubData("Cultural Club", "65 Members", "Cultural", "Active"),
-        ClubData("Business Club", "38 Members", "Business", "Active"),
-        ClubData("Sports Club", "92 Members", "Sports", "Spring 2026"),
-        ClubData("Photography Club", "45 Members", "Creative", "Recruiting"),
-        ClubData("Music Club", "52 Members", "Cultural", "Active")
-    )
+    val clubList by clubViewModel.clubs.collectAsState()
 
-    // Filter clubs based on search
-    val filteredClubs = if (searchText.isEmpty()) {
-        allClubs
-    } else {
-        allClubs.filter {
-            it.name.contains(searchText, ignoreCase = true) ||
-                    it.category.contains(searchText, ignoreCase = true)
-        }
+    val filteredClubs = clubList.filter {
+        it.name.isNotEmpty() &&
+                (selectedCategory == "All" || it.department == selectedCategory) &&
+                (it.name.contains(searchText, ignoreCase = true))
     }
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = "All Clubs",
-                        color = TextWhite,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                },
+            CenterAlignedTopAppBar(
+                title = { Text("Available Clubs", color = TextWhite, fontWeight = FontWeight.Bold) },
                 navigationIcon = {
-                    IconButton(onClick = { navController.navigateUp() }) {
-                        Text(text = "←", color = TextWhite, fontSize = 24.sp)
+                    IconButton(onClick = { navController.popBackStack() }) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back", tint = TextWhite)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark)
+                colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = BackgroundDark)
             )
         },
+        // --- এখানে BottomNavBar যোগ করা হয়েছে ---
         bottomBar = { BottomNavBar(navController) },
         containerColor = BackgroundDark
     ) { paddingValues ->
@@ -72,22 +66,44 @@ fun ClubListScreen(navController: NavController) {
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(16.dp)
         ) {
-            // Search Bar
+            LazyRow(
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(categories) { category ->
+                    FilterChip(
+                        selected = selectedCategory == category,
+                        onClick = { selectedCategory = category },
+                        label = { Text(category) },
+                        colors = FilterChipDefaults.filterChipColors(
+                            containerColor = CardBackground,
+                            selectedContainerColor = PrimaryBlue,
+                            labelColor = TextGray,
+                            selectedLabelColor = TextWhite
+                        ),
+                        border = null,
+                        shape = CircleShape
+                    )
+                }
+            }
+
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
-                placeholder = { Text("Search clubs by name or category...", color = TextGray) },
-                leadingIcon = {
-                    Icon(Icons.Default.Search, contentDescription = "Search", tint = PrimaryBlue)
-                },
-                modifier = Modifier.fillMaxWidth(),
+                placeholder = { Text("Search clubs...", color = TextGray) },
+                leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = PrimaryBlue) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = CardBackground,
+                    focusedTextColor = TextWhite,
+                    unfocusedTextColor = TextWhite,
+                    focusedContainerColor = CardBackground,
+                    unfocusedContainerColor = CardBackground,
                     focusedBorderColor = PrimaryBlue,
-                    focusedLabelColor = PrimaryBlue,
+                    unfocusedBorderColor = Color.Transparent,
                     cursorColor = PrimaryBlue
                 ),
                 singleLine = true
@@ -95,40 +111,26 @@ fun ClubListScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Search Result Info
-            if (searchText.isNotEmpty()) {
-                Text(
-                    text = "Found ${filteredClubs.size} clubs for \"$searchText\"",
-                    color = TextGray,
-                    fontSize = 12.sp
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            // Clubs List
             if (filteredClubs.isEmpty()) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(text = "🔍", fontSize = 48.sp)
-                        Text(text = "No clubs found", color = TextGray, fontSize = 16.sp)
-                        Text(text = "Try searching with different keywords", color = TextGray, fontSize = 12.sp)
-                    }
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No clubs found!", color = TextGray)
                 }
             } else {
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyColumn(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = 16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 20.dp)
+                ) {
                     items(filteredClubs) { club ->
-                        ClubCard(
+                        ClubCardItem(
                             name = club.name,
-                            members = club.members,
-                            status = club.status,
-                            category = club.category,
-                            onClick = {
-                                navController.navigate("club_detail/${club.name}")
-                            }
-                        )
+                            dept = club.department,
+                            imageUrl = club.imageUrl
+                        ) {
+                            navController.navigate("club_details/${club.id}")
+                        }
                     }
                 }
             }
@@ -136,69 +138,51 @@ fun ClubListScreen(navController: NavController) {
     }
 }
 
-data class ClubData(
-    val name: String,
-    val members: String,
-    val category: String,
-    val status: String
-)
-
 @Composable
-fun ClubCard(
-    name: String,
-    members: String,
-    status: String,
-    category: String,
-    onClick: () -> Unit = {}
-) {
+fun ClubCardItem(name: String, dept: String, imageUrl: String, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = CardBackground),
-        shape = RoundedCornerShape(12.dp),
-        onClick = onClick
+        shape = RoundedCornerShape(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(
-                modifier = Modifier.weight(1f)
+            Box(
+                modifier = Modifier
+                    .size(50.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(PrimaryBlue.copy(alpha = 0.1f)),
+                contentAlignment = Alignment.Center
             ) {
-                Text(
-                    text = name,
-                    color = TextWhite,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "$members • $category",
-                    color = TextGray,
-                    fontSize = 12.sp
-                )
+                if (imageUrl.isNotEmpty()) {
+                    AsyncImage(
+                        model = imageUrl,
+                        contentDescription = "Club Logo",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize()
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.Image,
+                        contentDescription = null,
+                        tint = PrimaryBlue,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
 
-            Column(
-                horizontalAlignment = Alignment.End
-            ) {
-                Text(
-                    text = status,
-                    color = when {
-                        status.contains("Active") -> Color(0xFF4CAF50)
-                        status.contains("Recruiting") -> PrimaryBlue
-                        else -> Color(0xFFFF9800)
-                    },
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "View →",
-                    color = PrimaryBlue,
-                    fontSize = 11.sp
-                )
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                Text(dept, color = TextGray, fontSize = 12.sp)
             }
+
+            Text("Details →", color = PrimaryBlue, fontSize = 12.sp)
         }
     }
 }
