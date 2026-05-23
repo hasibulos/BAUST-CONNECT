@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -26,7 +27,7 @@ import androidx.navigation.NavController
 import coil.compose.AsyncImage
 import com.example.baustclubh.ui.theme.*
 import com.example.baustclubh.viewmodel.ClubViewModel
-import com.example.baustclubh.ui.components.BottomNavBar // ইমপোর্ট নিশ্চিত করুন
+import com.example.baustclubh.ui.components.BottomNavBar
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,12 +39,22 @@ fun ClubListScreen(
     var selectedCategory by remember { mutableStateOf("All") }
     val categories = listOf("All", "Tech", "Culture", "Sport", "Business")
 
+    var selectedDept by remember { mutableStateOf("All Dept") }
+    var isDeptMenuExpanded by remember { mutableStateOf(false) }
+    val departments = listOf("All Dept", "CSE", "EEE", "ME", "IPE", "CE", "BBA", "English")
+
     val clubList by clubViewModel.clubs.collectAsState()
 
-    val filteredClubs = clubList.filter {
-        it.name.isNotEmpty() &&
-                (selectedCategory == "All" || it.department == selectedCategory) &&
-                (it.name.contains(searchText, ignoreCase = true))
+    // ⚡ এরর ফিক্সড ফিল্টার লজিক: club.category বাদ দিয়ে শুধু name এবং department চেক করা হচ্ছে
+    val filteredClubs = clubList.filter { club ->
+        val matchesCategory = selectedCategory == "All" ||
+                club.name.contains(selectedCategory, ignoreCase = true) ||
+                club.department.contains(selectedCategory, ignoreCase = true)
+
+        val matchesDept = selectedDept == "All Dept" || club.department.contains(selectedDept, ignoreCase = true)
+        val matchesSearch = club.name.isNotEmpty() && club.name.contains(searchText, ignoreCase = true)
+
+        matchesCategory && matchesDept && matchesSearch
     }
 
     Scaffold(
@@ -58,7 +69,6 @@ fun ClubListScreen(
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(containerColor = BackgroundDark)
             )
         },
-        // --- এখানে BottomNavBar যোগ করা হয়েছে ---
         bottomBar = { BottomNavBar(navController) },
         containerColor = BackgroundDark
     ) { paddingValues ->
@@ -67,8 +77,10 @@ fun ClubListScreen(
                 .fillMaxSize()
                 .padding(paddingValues)
         ) {
+
+            // 🏷️ CATEGORY CHIPS ROW
             LazyRow(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(categories) { category ->
@@ -88,10 +100,67 @@ fun ClubListScreen(
                 }
             }
 
+            // 🔽 DEPARTMENT DROPDOWN LAYER
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp)
+            ) {
+                ExposedDropdownMenuBox(
+                    expanded = isDeptMenuExpanded,
+                    onExpandedChange = { isDeptMenuExpanded = !isDeptMenuExpanded }
+                ) {
+                    OutlinedButton(
+                        onClick = { isDeptMenuExpanded = true },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            containerColor = CardBackground,
+                            contentColor = TextWhite
+                        ),
+                        border = null
+                    ) {
+                        Row(
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(
+                                text = if (selectedDept == "All Dept") "Filter by Department" else "Dept: $selectedDept",
+                                fontSize = 14.sp,
+                                color = if (selectedDept == "All Dept") TextGray else TextWhite
+                            )
+                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = PrimaryBlue)
+                        }
+                    }
+
+                    ExposedDropdownMenu(
+                        expanded = isDeptMenuExpanded,
+                        onDismissRequest = { isDeptMenuExpanded = false },
+                        modifier = Modifier.background(CardBackground)
+                    ) {
+                        departments.forEach { dept ->
+                            DropdownMenuItem(
+                                text = { Text(dept, color = TextWhite) },
+                                onClick = {
+                                    selectedDept = dept
+                                    isDeptMenuExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // 🔍 SEARCH BAR SECTION
             OutlinedTextField(
                 value = searchText,
                 onValueChange = { searchText = it },
-                placeholder = { Text("Search clubs...", color = TextGray) },
+                placeholder = { Text("Search clubs by name...", color = TextGray) },
                 leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = PrimaryBlue) },
                 modifier = Modifier
                     .fillMaxWidth()
@@ -111,9 +180,10 @@ fun ClubListScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 📜 CLUBS LIST VIEW
             if (filteredClubs.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text("No clubs found!", color = TextGray)
+                    Text("No clubs found for this criteria!", color = TextGray)
                 }
             } else {
                 LazyColumn(

@@ -2,7 +2,7 @@ package com.example.baustclubh.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.baustclubh.ui.screens.admin.Club
+import com.example.baustclubh.data.model.Club
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -29,10 +29,18 @@ class ClubViewModel : ViewModel() {
     }
 
     // --- ২. নতুন ক্লাব অ্যাড করা ---
-    fun addClub(name: String, moderator: String, website: String, dept: String, type: String, onComplete: (Boolean) -> Unit) {
+    fun addClub(name: String, moderator: String, email: String, website: String, dept: String, type: String, onComplete: (Boolean) -> Unit) {
         viewModelScope.launch {
             val id = db.collection("clubs").document().id
-            val newClub = Club(id, name, moderator, website, dept, type)
+            val newClub = Club(
+                id = id,
+                name = name,
+                moderator = moderator,
+                email = email,
+                website = website,
+                department = dept,
+                type = type
+            )
 
             db.collection("clubs").document(id).set(newClub)
                 .addOnSuccessListener { onComplete(true) }

@@ -7,9 +7,10 @@ data class Event(
     val date: String = "",
     val time: String = "",
     val location: String = "",
-    val clubId: String = "",      // কোন ক্লাব ইভেন্টটি আয়োজন করছে
-    val clubName: String = "",    // সহজে দেখানোর জন্য ক্লাবের নাম
+    val clubName: String = "",
     val imageUrl: String = "",
     val imageName: String = "",
-    val attendeeList: List<String> = emptyList() // যারা জয়েন করবে তাদের আইডি
+    val category: String = "Tech",       // 🆕 নতুন যুক্ত করা হলো (ডিফল্ট ভ্যালু সহ)
+    val type: String = "Seminar",        // 🆕 নতুন যুক্ত করা হলো (ডিফল্ট ভ্যালু সহ)
+    val department: String = "CSE"       // 🆕 নতুন যুক্ত করা হলো (ডিফল্ট ভ্যালু সহ)
 )

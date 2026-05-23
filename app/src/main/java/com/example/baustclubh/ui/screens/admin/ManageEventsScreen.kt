@@ -1,9 +1,6 @@
 package com.example.baustclubh.ui.screens.admin
 
-import android.net.Uri
 import android.widget.Toast
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -11,7 +8,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Image
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,15 +23,12 @@ import com.example.baustclubh.data.model.Event
 import com.example.baustclubh.ui.theme.*
 import com.example.baustclubh.viewmodel.AuthViewModel
 import com.google.firebase.firestore.FirebaseFirestore
-import com.google.firebase.storage.FirebaseStorage
-import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ManageEventsScreen(navController: NavController, authViewModel: AuthViewModel) {
     val context = LocalContext.current
     val db = FirebaseFirestore.getInstance()
-    val storage = FirebaseStorage.getInstance()
 
     // Form States
     var eventTitle by remember { mutableStateOf("") }
@@ -43,21 +37,29 @@ fun ManageEventsScreen(navController: NavController, authViewModel: AuthViewMode
     var eventTime by remember { mutableStateOf("") }
     var location by remember { mutableStateOf("") }
     var organizingClub by remember { mutableStateOf("") }
-    var imageUri by remember { mutableStateOf<Uri?>(null) }
+    var manualImageUrl by remember { mutableStateOf("") }
 
-    var isUploading by remember { mutableStateOf(false) }
+    // Category & Type States
+    var selectedCategory by remember { mutableStateOf("Tech") }
+    var isCategoryExpanded by remember { mutableStateOf(false) }
+    val categories = listOf("Tech", "Culture", "Sport", "Workshop")
+
+    var selectedType by remember { mutableStateOf("Seminar") }
+    var isTypeExpanded by remember { mutableStateOf(false) }
+    val eventTypes = listOf("Seminar", "Contest", "Fest", "Webinar")
+
+    // 🆕 Department States (নতুন যুক্ত করা হয়েছে)
+    var selectedDept by remember { mutableStateOf("CSE") }
+    var isDeptExpanded by remember { mutableStateOf(false) }
+    val departments = listOf("CSE", "EEE", "ME", "IPE", "CE", "BBA", "English", "All Dept")
+
+    var isSaving by remember { mutableStateOf(false) }
     var isEditMode by remember { mutableStateOf(false) }
     var editingEventId by remember { mutableStateOf("") }
-    var currentImageUrl by remember { mutableStateOf("") }
-    var currentImageName by remember { mutableStateOf("") }
-
-    val launcher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? -> imageUri = uri }
 
     var eventList by remember { mutableStateOf<List<Event>>(listOf()) }
 
-    // Real-time Event Data Load
+    // ডাটা রিয়েলটাইম লোড করা
     LaunchedEffect(Unit) {
         db.collection("events").addSnapshotListener { snapshot, _ ->
             if (snapshot != null) {
@@ -66,14 +68,29 @@ fun ManageEventsScreen(navController: NavController, authViewModel: AuthViewMode
         }
     }
 
+    fun resetEventForm() {
+        isEditMode = false
+        editingEventId = ""
+        eventTitle = ""
+        description = ""
+        eventDate = ""
+        eventTime = ""
+        location = ""
+        organizingClub = ""
+        manualImageUrl = ""
+        selectedCategory = "Tech"
+        selectedType = "Seminar"
+        selectedDept = "CSE" // ডিপার্টমেন্ট রিসেট
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Manage Events", color = TextWhite, fontWeight = FontWeight.Bold) },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = BackgroundDark),
                 navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Text("←", color = TextWhite, fontSize = 24.sp)
+                    TextButton(onClick = { navController.popBackStack() }) {
+                        Text("← Back", color = PrimaryBlue, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                     }
                 }
             )
@@ -104,96 +121,163 @@ fun ManageEventsScreen(navController: NavController, authViewModel: AuthViewMode
                         )
 
                         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Box(modifier = Modifier.weight(1f)) { AdminInputField(value = eventDate, onValueChange = { eventDate = it }, label = "Date (e.g. 12 May)") }
-                            Box(modifier = Modifier.weight(1f)) { AdminInputField(value = eventTime, onValueChange = { eventTime = it }, label = "Time (e.g. 10:00 AM)") }
+                            Box(modifier = Modifier.weight(1f)) { AdminInputField(value = eventDate, onValueChange = { eventDate = it }, label = "Date") }
+                            Box(modifier = Modifier.weight(1f)) { AdminInputField(value = eventTime, onValueChange = { eventTime = it }, label = "Time") }
                         }
 
                         AdminInputField(value = location, onValueChange = { location = it }, label = "Venue/Location")
                         AdminInputField(value = organizingClub, onValueChange = { organizingClub = it }, label = "Organizing Club Name")
 
-                        OutlinedButton(
-                            onClick = { launcher.launch("image/*") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextWhite)
-                        ) {
-                            Icon(Icons.Default.Image, contentDescription = null)
-                            Spacer(Modifier.width(8.dp))
-                            Text(if (imageUri != null) "Image Selected" else "Select Event Banner")
+                        AdminInputField(value = manualImageUrl, onValueChange = { manualImageUrl = it }, label = "Event Banner URL (https://...)")
+
+                        // ================= 🏷️ CATEGORY DROPDOWN =================
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            ExposedDropdownMenuBox(
+                                expanded = isCategoryExpanded,
+                                onExpandedChange = { isCategoryExpanded = !isCategoryExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedCategory,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    placeholder = { Text("Select Event Category", color = TextGray) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, tint = PrimaryBlue) },
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = PrimaryBlue, unfocusedBorderColor = Color.DarkGray)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = isCategoryExpanded,
+                                    onDismissRequest = { isCategoryExpanded = false },
+                                    modifier = Modifier.background(CardBackground)
+                                ) {
+                                    categories.forEach { cat ->
+                                        DropdownMenuItem(
+                                            text = { Text(cat, color = TextWhite) },
+                                            onClick = {
+                                                selectedCategory = cat
+                                                isCategoryExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
                         }
 
+                        // ================= 🔽 EVENT TYPE DROPDOWN =================
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            ExposedDropdownMenuBox(
+                                expanded = isTypeExpanded,
+                                onExpandedChange = { isTypeExpanded = !isTypeExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedType,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    placeholder = { Text("Select Event Type", color = TextGray) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, tint = PrimaryBlue) },
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = PrimaryBlue, unfocusedBorderColor = Color.DarkGray)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = isTypeExpanded,
+                                    onDismissRequest = { isTypeExpanded = false },
+                                    modifier = Modifier.background(CardBackground)
+                                ) {
+                                    eventTypes.forEach { type ->
+                                        DropdownMenuItem(
+                                            text = { Text(type, color = TextWhite) },
+                                            onClick = {
+                                                selectedType = type
+                                                isTypeExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // ================= 🏢 🆕 DEPARTMENT DROPDOWN (নতুন যুক্ত করা হয়েছে) =================
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            ExposedDropdownMenuBox(
+                                expanded = isDeptExpanded,
+                                onExpandedChange = { isDeptExpanded = !isDeptExpanded }
+                            ) {
+                                OutlinedTextField(
+                                    value = selectedDept,
+                                    onValueChange = {},
+                                    readOnly = true,
+                                    placeholder = { Text("Select Department", color = TextGray) },
+                                    trailingIcon = { Icon(Icons.Default.ArrowDropDown, null, tint = PrimaryBlue) },
+                                    modifier = Modifier.fillMaxWidth().menuAnchor(),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(focusedTextColor = TextWhite, unfocusedTextColor = TextWhite, focusedBorderColor = PrimaryBlue, unfocusedBorderColor = Color.DarkGray)
+                                )
+                                ExposedDropdownMenu(
+                                    expanded = isDeptExpanded,
+                                    onDismissRequest = { isDeptExpanded = false },
+                                    modifier = Modifier.background(CardBackground)
+                                ) {
+                                    departments.forEach { dept ->
+                                        DropdownMenuItem(
+                                            text = { Text(dept, color = TextWhite) },
+                                            onClick = {
+                                                selectedDept = dept
+                                                isDeptExpanded = false
+                                            }
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- সরাসরি Firestore-এ সেভ লজিক (আপডেটেড) ---
                         Button(
                             onClick = {
                                 if (eventTitle.isNotEmpty()) {
-                                    isUploading = true
+                                    isSaving = true
                                     val finalId = if (isEditMode) editingEventId else db.collection("events").document().id
 
-                                    if (imageUri != null) {
-                                        val fileName = "event_images/${UUID.randomUUID()}.jpg"
-                                        val storageRef = storage.reference.child(fileName)
+                                    val eventData = Event(
+                                        id = finalId,
+                                        title = eventTitle,
+                                        description = description,
+                                        date = eventDate,
+                                        time = eventTime,
+                                        location = location,
+                                        clubName = organizingClub,
+                                        imageUrl = manualImageUrl.trim(),
+                                        imageName = "",
+                                        category = selectedCategory,
+                                        type = selectedType,
+                                        department = selectedDept // ⚡ ডিপার্টমেন্ট ডেটাবেজে যুক্ত হলো
+                                    )
 
-                                        storageRef.putFile(imageUri!!)
-                                            .continueWithTask { task ->
-                                                if (!task.isSuccessful) {
-                                                    task.exception?.let { throw it }
-                                                }
-                                                storageRef.downloadUrl
-                                            }
-                                            .addOnCompleteListener { task ->
-                                                if (task.isSuccessful) {
-                                                    val downloadUrl = task.result.toString()
-                                                val eventData = Event(
-                                                    id = finalId,
-                                                    title = eventTitle,
-                                                    description = description,
-                                                    date = eventDate,
-                                                    time = eventTime,
-                                                    location = location,
-                                                    clubName = organizingClub,
-                                                    imageUrl = downloadUrl,
-                                                    imageName = fileName
-                                                )
-
-                                                    db.collection("events").document(finalId).set(eventData)
-                                                        .addOnSuccessListener {
-                                                            isUploading = false; isEditMode = false; imageUri = null
-                                                            eventTitle = ""; description = ""; eventDate = ""; eventTime = ""; location = ""; organizingClub = ""
-                                                            Toast.makeText(context, "Event Saved!", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                        .addOnFailureListener {
-                                                            isUploading = false
-                                                            Toast.makeText(context, "Firestore Error: ${it.message}", Toast.LENGTH_SHORT).show()
-                                                        }
-                                                } else {
-                                                    isUploading = false
-                                                    Toast.makeText(context, "Upload Failed: ${task.exception?.message}", Toast.LENGTH_LONG).show()
-                                                }
-                                            }
-                                    } else {
-                                        val eventData = Event(finalId, eventTitle, description, eventDate, eventTime, location, "", organizingClub, currentImageUrl, currentImageName)
-                                        db.collection("events").document(finalId).set(eventData)
-                                            .addOnSuccessListener {
-                                                isUploading = false; isEditMode = false
-                                                Toast.makeText(context, "Event Updated!", Toast.LENGTH_SHORT).show()
-                                            }
-                                            .addOnFailureListener {
-                                                isUploading = false
-                                                Toast.makeText(context, "Update Failed: ${it.message}", Toast.LENGTH_SHORT).show()
-                                            }
-                                    }
+                                    db.collection("events").document(finalId).set(eventData)
+                                        .addOnSuccessListener {
+                                            isSaving = false
+                                            resetEventForm()
+                                            Toast.makeText(context, "Event Saved Successfully!", Toast.LENGTH_SHORT).show()
+                                        }
+                                        .addOnFailureListener { e ->
+                                            isSaving = false
+                                            Toast.makeText(context, "Error: ${e.message}", Toast.LENGTH_SHORT).show()
+                                        }
                                 }
                             },
                             modifier = Modifier.fillMaxWidth(),
-                            enabled = !isUploading,
+                            enabled = !isSaving,
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
                         ) {
-                            if (isUploading) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White)
-                            else Text(if (isEditMode) "Save Event" else "Post Event")
+                            if (isSaving) CircularProgressIndicator(modifier = Modifier.size(20.dp), color = Color.White, strokeWidth = 2.dp)
+                            else Text(if (isEditMode) "Update Event" else "Post Event", color = TextWhite, fontWeight = FontWeight.Bold)
                         }
                     }
                 }
             }
 
-            // Event List Table
+            // ইভেন্ট লিস্ট টেবিল
             item {
                 Row(modifier = Modifier.fillMaxWidth().background(PrimaryBlue).padding(10.dp)) {
                     Text("Event Title", modifier = Modifier.weight(1.5f), color = TextWhite, fontWeight = FontWeight.Bold, fontSize = 14.sp)
@@ -217,14 +301,13 @@ fun ManageEventsScreen(navController: NavController, authViewModel: AuthViewMode
                             eventTime = event.time
                             location = event.location
                             organizingClub = event.clubName
-                            currentImageUrl = event.imageUrl
-                            currentImageName = event.imageName
+                            manualImageUrl = event.imageUrl
+                            selectedCategory = if (event.category.isNotEmpty()) event.category else "Tech"
+                            selectedType = if (event.type.isNotEmpty()) event.type else "Seminar"
+                            selectedDept = if (event.department.isNotEmpty()) event.department else "CSE" // ⚡ এডিটের সময় ডিপার্টমেন্ট লোড
                         })
                         Text("Delete", color = Color.Red, modifier = Modifier.clickable {
                             db.collection("events").document(event.id).delete().addOnSuccessListener {
-                                if (event.imageName.isNotEmpty()) {
-                                    storage.reference.child(event.imageName).delete()
-                                }
                                 Toast.makeText(context, "Event Removed", Toast.LENGTH_SHORT).show()
                             }
                         })

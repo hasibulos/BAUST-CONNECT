@@ -159,7 +159,6 @@
 //    }
 //}
 
-
 package com.example.baustclubh.ui.screens.dashboard
 
 import androidx.compose.foundation.background
@@ -279,7 +278,7 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ৫. স্ট্যাট কার্ডস
+            // ৫. স্ট্যাটカードস
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
@@ -291,17 +290,32 @@ fun ProfileScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // ৬. লিস্ট অপশনস (Alumni Network সহ)
+            // ⚙️ ৬. লিস্ট অপশনস (ক্লিক লজিক এবং লাইব্রেরি বাটন সহ আপডেট করা হয়েছে)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                ProfileMenuLink("My Applications", Icons.Default.Description, Color(0xFF4285F4))
-                ProfileMenuLink("Attendance History", Icons.Default.History, Color(0xFF34A853))
-                ProfileMenuLink("My Certificates", Icons.Default.EmojiEvents, Color(0xFFFBBC05))
+                ProfileMenuLink("My Applications", Icons.Default.Description, Color(0xFF4285F4)) {
+                    navController.navigate("my_applications")
+                }
 
-                // নতুন যোগ করা হয়েছে
-                ProfileMenuLink("Alumni Network", Icons.Default.School, Color(0xFFE91E63))
+                ProfileMenuLink("Attendance History", Icons.Default.History, Color(0xFF34A853)) {
+                    navController.navigate("qr_scan")
+                }
 
-                ProfileMenuLink("Notifications", Icons.Default.Notifications, Color(0xFFEA4335))
-                ProfileMenuLink("Settings", Icons.Default.Settings, Color(0xFF673AB7))
+                ProfileMenuLink("My Certificates", Icons.Default.EmojiEvents, Color(0xFFFBBC05)) {
+                    /* সার্টিফিকেট স্ক্রিনের রুট থাকলে এখানে বসবে */
+                }
+
+                // 📚 অ্যালমনাই এর জায়গায় লাইব্রেরি বাটন যুক্ত করা হলো এবং এর ক্লিক লজিক ফিক্স করা হলো
+                ProfileMenuLink("Library Resource Hub", Icons.Default.MenuBook, Color(0xFFE91E63)) {
+                    navController.navigate("library")
+                }
+
+                ProfileMenuLink("Notifications", Icons.Default.Notifications, Color(0xFFEA4335)) {
+                    /* নোটিফিকেশন রুট থাকলে এখানে বসবে */
+                }
+
+                ProfileMenuLink("Settings", Icons.Default.Settings, Color(0xFF673AB7)) {
+                    /* সেটিংস রুট থাকলে এখানে বসবে */
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
@@ -342,14 +356,20 @@ fun StatItem(label: String, value: String) {
     }
 }
 
+// 🛠️ ProfileMenuLink-কে Lambda onClick ফাংশন অ্যাক্সেপ্ট করার জন্য আপডেট করা হলো
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ProfileMenuLink(title: String, icon: ImageVector, iconColor: Color) {
+fun ProfileMenuLink(
+    title: String,
+    icon: ImageVector,
+    iconColor: Color,
+    onClick: () -> Unit // 👈 ক্লিক লজিক পাস করার নতুন প্যারামিটার
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         shape = RoundedCornerShape(14.dp),
-        onClick = { /* Navigate */ }
+        onClick = onClick // 👈 কার্ডের ওপরে ক্লিক অ্যাকশনটি সেট করা হলো
     ) {
         Row(
             modifier = Modifier.padding(14.dp),
